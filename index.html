@@ -1,0 +1,234 @@
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>落地省份分布图</title>
+</head>
+<style>
+.title{
+    font-size: 28px;
+    font-weight: bold;
+    text-align: center;
+}
+    .button{
+        position: fixed;
+        top:20px;
+        right: 50px;
+        width: 80px;
+        height: 50px;
+    }
+    svg{
+       position: relative;
+        left: 20%;
+    }
+</style>
+<body>
+<input type="button" value="下一个" class="button" onclick="goNext()"/>
+<script src="./lib/jquery-3.3.1.min.js"></script>
+<script src="./lib/d3.v3.min.js"></script>
+<script scoped>
+    var p = document.createElement("p");
+    p.innerText = "部分青年千人落地省份分布图";
+    p.className = "title";
+    document.body.appendChild(p);
+
+    var width = 1000;
+    var height = 1000;
+
+    var svg = d3.select("body").append("svg")
+        .attr("width", width)
+        .attr("height", height)
+        .append("g")
+        .attr("transform", "translate(0,0)");
+
+
+    var projection = d3.geo.mercator()
+        .center([107, 31])
+        .scale(850)
+        .translate([width / 2, height / 2]);
+
+    var path = d3.geo.path()
+        .projection(projection);
+
+
+    var color = d3.scale.category20();
+
+    var province = [], provinceJson = {};
+    var proLonLat = {
+        "北京": {0: "116.41667", 1: "39.91667"},
+        "上海": {0: "121.43333", 1: "34.50000"},
+        "天津": {0: "117.20000", 1: "39.13333"},
+        "香港": {0: "114.10000", 1: "22.20000"},
+        "广东": {0: "113.23333", 1: "23.16667"},
+        "浙江": {0: "120.20000", 1: "30.26667"},
+        "重庆": {0: "106.45000", 1: "29.56667"},
+        "山东": {0: "120.33333", 1: "36.06667"},
+        "福建": {0: "119.30000", 1: "26.08333"},
+        "甘肃": {0: "103.73333", 1: "36.03333"},
+        "贵州": {0: "106.71667", 1: "26.56667"},
+        "湖南": {0: "113.00000", 1: "28.21667"},
+        "江苏": {0: "120.3000", 1: "31.52000"},
+        "江西": {0: "115.90000", 1: "28.68333"},
+        "辽宁": {0: "123.38333", 1: "41.80000"},
+        "山西": {0: "112.53333", 1: "37.86667"},
+        "四川": {0: "104.06667", 1: "30.66667"},
+        "西藏": {0: "91.00000", 1: "29.60000"},
+        "新疆": {0: "87.68333", 1: "43.76667"},
+        "云南": {0: "102.73333", 1: "25.05000"},
+        "陕西": {0: "108.95000", 1: "34.26667"},
+        "青海": {0: "101.75000", 1: "36.56667"},
+        "宁夏": {0: "106.26667", 1: "38.46667"},
+        "内蒙古": {0: "122.08333", 1: "46.06667"},
+        "黑龙江": {0: "126.63333", 1: "45.75000"},
+        "吉林": {0: "125.35000", 1: "43.88333"},
+        "湖北": {0: "114.31667", 1: "30.51667"},
+        "河南": {0: "113.65000", 1: "34.76667"},
+        "河北": {0: "114.48333", 1: "38.03333"},
+        "海南": {0: "110.35000", 1: "20.01667"},
+        "澳门": {0: "113.50000", 1: "22.20000"},
+        "安徽": {0: "116.28000", 1: "31.44000"}
+    };
+
+    var csv = d3.dsv(",", "text/csv;charset=gb2312");
+    var compareObj = {};
+    csv("./data/18.csv", function (error, csvdata) {
+
+        if (error) {
+            console.log(error);
+        }
+        console.log(csvdata);
+
+        for (var i = 0; i < csvdata.length; i++) {
+            if (compareObj[csvdata[i]["落地省份"]] === undefined) {
+                compareObj[csvdata[i]["落地省份"]] = 1
+            } else {
+                compareObj[csvdata[i]["落地省份"]] = compareObj[csvdata[i]["落地省份"]] + 1
+            }
+        }
+        console.log('所有数据的合集', compareObj)
+
+    })
+    //获取url
+    var strPath = window.document.location.pathname;
+    var postPath = strPath.substring(0, strPath.substr(1).indexOf('/') + 1);
+    var url = "http://" + window.location.host + postPath + "/data/";
+
+    //请求地图数据
+    $.ajax({
+        url: url + "china.json",
+        datatype: "json",
+        async: false,
+        data: {},
+        success: function (result) {
+            drawMap(result);
+        }
+    });
+    //请求省份边缘经纬度
+    // $.ajax({
+    //     url: url + "province.json",
+    //     datatype: "json",
+    //     async: false,
+    //     data: {},
+    //     success: function (result) {
+    //
+    //     }
+    // });
+    d3.json("./data/province.json", function (error, data) {
+        provinceJson = data;
+        drawPoint();
+    });
+
+
+    //画地图
+    function drawMap(data) {
+
+        if (!data.features || data.features.length == 0)
+            return console.error('error');
+        console.log(data.features);
+        //compareObj[csvdata[i]["落地省份"]]
+        console.log(compareObj)
+        province = data.features;
+        svg.selectAll("path")
+            .data(data.features)
+            .enter()
+            .append("path")
+            .attr("stroke", "#000")
+            .attr("stroke-width", 1)
+            .attr("fill", function (d, i) {
+                return "#fff";
+            })
+            .attr("d", path)
+            // .append("text")
+            // .text(function (d) {
+            //     //var count = compareObj[d.properties.name];
+            //     return  1
+            // })
+            .on("mouseover", function (d, i) {
+                d3.select(this)
+                    .attr("fill", "yellow")
+                    .append("svg:title")
+                    .text(function (d) {
+                        var count = compareObj[d.properties.name];
+                        return count
+                    });
+
+            })
+            .on("mouseout", function (d, i) {
+                d3.select(this)
+                    .attr("fill", "#fff");
+            })
+
+
+    }
+
+    var color = d3.scale.category20();
+
+    function drawPoint() {
+        var compareObj2 = Object.keys(compareObj);
+        for (var j = 0, l = compareObj2.length; j < l; j++) {
+            var curLen = compareObj[compareObj2[j]];
+            var curPro = compareObj2[j];
+            if (provinceJson[curPro].curindex === undefined) {
+                provinceJson[curPro].curindex = 0;
+            }
+            if (curPro == "北京") {
+                curLen = curLen > 10 ? 5 : curLen;
+            }
+            for (var m = 0; m < curLen; m++) {
+                var location = '';
+                location = provinceJson[curPro][provinceJson[curPro].curindex]; //获取某个边缘经纬度
+
+                var center = proLonLat[compareObj2[j]];
+                var cx = (projection(location)[0] + projection(center)[0]) / 2;
+                var cy = (projection(location)[1] + projection(center)[1]) / 2;
+                //插入一个圆
+                svg.append("circle")
+                    .attr("class", "point")
+                    .attr("fill", function (d, i) {
+                        return color(j);
+                    })
+                    .attr("cx", cx)
+                    .attr("cy", cy)
+                    .attr("r", 3);
+                var leg;
+                leg = provinceJson[curPro].length;
+                provinceJson[curPro].curindex = (provinceJson[curPro].curindex * 2 + 5) >= leg ? Math.ceil(provinceJson[curPro].curindex / 4) : (provinceJson[curPro].curindex * 2 + 5);
+            }
+        }
+
+
+        var peking = [116.3, 39.9];
+        var proPeking = projection(peking);
+        svg.append("circle")
+            .attr("class", "point")
+            .attr("cx", proPeking[0])
+            .attr("cy", proPeking[1])
+            .attr("r", 3)
+    }
+
+function goNext(){
+    window.location.href = "./school.html"
+}
+</script>
+
+</body>
+</html>  

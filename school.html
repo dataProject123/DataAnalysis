@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>饼图</title>
+    <style>
+        .container {
+            margin: 30px auto;
+            width: 1000px;
+            height: 800px;
+        }
+
+        polyline {
+            fill: none;
+            stroke: #000000;
+            stroke-width: 2px;
+            stroke-dasharray: 5px;
+        }
+        .title{
+            font-size: 28px;
+            font-weight: bold;
+            text-align: center;
+        }
+        .button{
+            position: fixed;
+            top:20px;
+            right: 50px;
+            width: 80px;
+            height: 50px;
+        }
+    </style>
+</head>
+<body>
+<input type="button" value="下一个" class="button" onclick="goNext()"/>
+<div class="container">
+    <svg width="100%" height="100%"></svg>
+    <p class="title">各高校获得第十一批青年千人所占比例</p>
+</div>
+<script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+<script>
+    // 创建计算弧形路径的函数
+    var radius = 200;
+    var arc = d3.svg.arc()
+            .innerRadius(0)
+            .outerRadius(radius);
+    var outerArc = d3.svg.arc()
+            .innerRadius(1.5 * radius)
+            .outerRadius(1.5 * radius);
+    var oArc = d3.svg.arc()
+            .innerRadius(1.1 * radius)
+            .outerRadius(1.1 * radius);
+    window.onload = function () {
+        var width = 800, height = 800;
+        // 创建一个分组用来组合要画的图表元素
+        var main = d3.select('.container svg').append('g')
+                .classed('main', true)
+                .attr('transform', "translate(" + width / 2 + ',' + height / 2 + ')');
+        //获取数据
+        var csv = d3.dsv(",", "text/csv;charset=gb2312");
+        var compareObj = {};
+        var dataset = [],dataset_t2=[];
+
+        csv("./data/18.csv", function (error, csvdata) {
+
+            if (error) {
+                console.log(error);
+            }
+            console.log(csvdata);
+
+            for (var i = 0; i < csvdata.length; i++) {
+                if(/^中国科学院.*/.test(csvdata[i]["获得称号单位"])){
+                    csvdata[i]["获得称号单位"] = "中国科学院"
+                }
+                if (compareObj[csvdata[i]["获得称号单位"]] === undefined) {
+                    compareObj[csvdata[i]["获得称号单位"]] = 1
+                } else {
+                    compareObj[csvdata[i]["获得称号单位"]] = compareObj[csvdata[i]["获得称号单位"]] + 1
+                }
+            }
+            console.log('所有数据的合集', compareObj)
+            for (var j in compareObj) {
+                dataset.push({name: j, value: compareObj[j]})
+                dataset_t2.push(compareObj[j])
+            }
+
+            console.log(dataset)
+            drawPie()
+        })
+
+
+        function drawPie() {
+
+            // 转换原始数据为能用于绘图的数据
+            var pie = d3.layout.pie()
+                    .sort(null)
+//                    .value(function (d) {
+//                        return d.value;
+//                    });
+            var piedata_t2 = pie(dataset_t2);   //dataset_t2  为数值数组[1,2,3]
+            /*
+             添加动画
+             */
+            var sum=0;
+            piedata_t2.forEach(function(d,i){
+                d._endAngle=d.endAngle;
+                d.endAngle=d.startAngle;
+                d.duration=2000*(d.data/d3.sum(dataset_t2));//动画时长2秒，计算每一个弧形所用动画时间
+                d.delaytime=sum;
+                sum+=d.duration;
+            })
+            /*
+             画饼图并添加百分数
+             */
+            var slices = main.append('g').attr('class', 'slices');
+            var color = d3.scale.category10();
+            var arcs_t2 = slices.selectAll("g")       //先添加五个分组元素，用来存放一段弧的相关元素
+                    .data(piedata_t2)
+                    .enter()
+                    .append("g")
+//                    .attr("transform", function(d,i){
+//                        return "translate(" + (width / 2) + "," + (width / 2) + ")";
+//                    });
+
+            arcs_t2.append("path")     //给每个分组元素g添加一个路径
+                    .attr("fill", function(d, i) {
+                        return color(i);
+                    })
+                    .attr("d", function(d, i) {
+                        console.log(d);
+                        return arc(d);
+                    })
+                    .transition()
+                    .duration(function(d,i){
+                        return d.duration;
+                    })
+                    .ease("linear")
+                    .delay(function(d,i){
+                        return d.delaytime;
+                    })
+                    .attrTween("d", tweenArc(function(d, i) {
+                        return {
+                            startAngle: d.startAngle,
+                            endAngle: d._endAngle
+                        };
+                    }));
+            //添加弧内的文字
+            arcs_t2.append("text")
+                    .attr("transform",function(d){
+                        var x=arc.centroid(d)[0];//文字的x坐标
+                        var y=arc.centroid(d)[1];
+                        if(d.value>70){
+                            return "translate("+x*1+","+y*1.8+")";
+                        }else if(d.value >25){
+                            return "translate("+x*2+","+y*0.8+")";
+                        }else if(d.value ==16){
+                            return "translate("+x*1.5+","+y*0.5+")";
+                        }else if(d.value ==13){
+                            return "translate("+x*1.5+","+y*1.5+")";
+                        }else if(d.value ==11){
+                            return "translate("+x*2.8+","+y*1.5+")";
+                        }else{
+                            return "translate("+x*0.9+","+y*1.4+")";
+                        }
+
+                    })
+                    .attr("text-anchor","middle")
+                    .transition()
+                    .delay(function(d,i){
+                        return d.delaytime;
+                    })
+                    .text(function(d,i){
+                        //计算市场份额的百分比
+                        var percent=Number(d.value)/d3.sum(dataset_t2,function(d){
+                                    return d;
+                                })*100;
+                        //保留一位小数点 末尾加一个百分号返回
+                        if(percent >2.3){
+                            console.log(i+'-----------'+percent+'--------------'+d.value+'------------'+ d.name)
+                            return percent.toFixed(1)+"%";
+                        }else{
+                            return;
+                        }
+
+                    });
+            //过滤数据
+            var _dataset = [];
+            for (var k in dataset) {
+                if (dataset[k].value > 13) {
+                    _dataset.push(dataset[k]);
+                }
+            }
+            //重新定义pie函数
+            var _pie = d3.layout.pie()
+                    .sort(null)
+                    .value(function(d) {
+                        return d.value;
+                    });
+            var _pieData = _pie(dataset);
+
+
+            var lines = main.append('g').attr('class', 'lines');
+            var labels = main.append('g').attr('class', 'labels');
+            // 添加文字标签
+            var texts = labels.selectAll('text')
+                    .data(_pieData)
+                    .enter()
+                    .append('text')
+                    .attr('dy', '0.35em')
+                    .attr('fill', function (d, i) {
+                        return getColor(i);
+                    })
+                    .text(function (d, i) {
+                        if(d.value >10){
+                            return d.data.name;
+                        }else{
+                            return
+                        }
+
+                    })
+                    .style('text-anchor', function (d, i) {
+                        return midAngel(d) < Math.PI ? 'start' : 'end';
+                    })
+                    .attr('transform', function (d, i) {
+                        // 找出外弧形的中心点
+                        var pos = outerArc.centroid(d);
+                        // 改变文字标识的x坐标
+                        pos[0] = radius * (midAngel(d) < Math.PI ? 1.5 : -1.5);
+
+                        return 'translate(' + pos + ')';
+                    })
+                    .style('opacity', 1);
+
+            var polylines = lines.selectAll('polyline')
+                    .data(_pieData)
+                    .enter()
+                    .append('polyline')
+                    .attr('points', function (d) {
+                        if(d.value >10) {
+                            return [arc.centroid(d), arc.centroid(d), arc.centroid(d)];
+                        }else {
+                            return
+                        }
+                    })
+                    .attr('points', function (d) {
+                        if(d.value >10) {
+                            var pos = outerArc.centroid(d);
+                            pos[0] = radius * (midAngel(d) < Math.PI ? 1.5 : -1.5);
+                            return [oArc.centroid(d), outerArc.centroid(d), pos];
+                        }else {
+                            return
+                        }
+                    })
+                    //                    .attr("transform","translate("+width/2+","+height/2+")")
+                    .style('opacity', 0.5);
+        };
+    }
+
+    function midAngel(d) {
+        return d.startAngle + (d.endAngle - d.startAngle) / 2;
+    }
+    function getColor(idx) {
+        var palette = [
+            '#2ec7c9', '#b6a2de', '#5ab1ef', '#ffb980', '#d87a80',
+            '#8d98b3', '#e5cf0d', '#97b552', '#95706d', '#dc69aa',
+            '#07a2a4', '#9a7fd1', '#588dd5', '#f5994e', '#c05050',
+            '#59678c', '#c9ab00', '#7eb00a', '#6f5553', '#c14089'
+        ]
+        return palette[idx % palette.length];
+    }
+    function tweenArc(b) {
+        return function(a, i) {
+            var d = b.call(this, a, i),
+                    i = d3.interpolate(a, d);
+            //d保存转换之后的信息
+            //插值模式，从d.endAnle=d.startAngle到d.endAngle=d._endAngle转换
+            return function(t) {
+                return arc(i(t));
+            };
+        };
+    }
+    function goNext(){
+        window.location.href = "./workYear.html"
+    }
+</script>
+</body>
+</html>

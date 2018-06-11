@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>性别比例</title>
+    <style>
+        svg{
+            position: relative;
+            left: 50%;
+            transform: translateX(-50%);
+            -webkit-transform: translateX(-50%);
+            top:10%;
+        }
+        .title{
+            font-size: 28px;
+            font-weight: bold;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<p class="title">青年千人中男女所占比例</p>
+<script src="./lib/d3.v3.min.js"></script>
+<script>
+    // 创建计算弧形路径的函数
+    var radius = 200;
+    var arc = d3.svg.arc()
+            .innerRadius(0)
+            .outerRadius(radius);
+    var width = 600, height = 600;
+    window.onload = function(){
+        //获取数据
+        //获取数据
+        var csv = d3.dsv(",", "text/csv;charset=gb2312");
+        var sex_dataObj = {};
+        var sex_dataset = [];
+
+        csv("./data/18.csv", function (error, csvdata) {
+
+            if (error) {
+                console.log(error);
+            }
+            console.log(csvdata);
+
+            for (var i = 0; i < csvdata.length; i++) {
+                if (sex_dataObj[csvdata[i]["性别"]] === undefined) {
+                    sex_dataObj[csvdata[i]["性别"]] = 1
+                } else {
+                    sex_dataObj[csvdata[i]["性别"]] = sex_dataObj[csvdata[i]["性别"]] + 1
+                }
+            }
+            console.log('所有数据的合集', sex_dataObj)
+            for (var j in sex_dataObj) {
+                sex_dataset.push(sex_dataObj[j])
+            }
+            drawPie_sex()
+        });
+        //定义颜色比例尺
+        var color = d3.scale.category10();
+        var svg = d3.select("body").append("svg")
+                .attr("width", width)
+                .attr("height", height)
+                .append("g")
+                .attr("transform", "translate(0,0)");
+        function drawPie_sex(){
+            var pie_sex = d3.layout.pie()
+                    .sort(null);
+            var piedata_sex = pie_sex(sex_dataset);
+            var innerRadius_sex =0;
+            var outerRadius_sex = 200;
+            var arc_sex = d3.svg.arc()
+                    .innerRadius(innerRadius_sex)
+                    .outerRadius(outerRadius_sex)
+            var arcs_sex = svg.selectAll("g")
+                    .data(piedata_sex)
+                    .enter()
+                    .append("g")
+                    .attr("transform","translate("+width/2+","+height/2+")")
+            arcs_sex.append("path")
+                    .attr("fill",function (d,i){
+                        return color(i)
+            })
+                    .attr("d",function(d){
+                        return arc_sex(d)
+                    })
+            arcs_sex.append("text")
+                    .attr("transform",function(d) {
+                       return "translate(" + arc_sex.centroid(d)+")";
+                    })
+                    .attr("text-anchor","middle")
+                    .text(function(d){
+                        var name = "";
+                        for(var k in sex_dataObj){
+                            if(d.data == sex_dataObj[k]){
+                                name = k;
+                                break
+                            }
+                        }
+                        var percent=Number(d.value)/d3.sum(sex_dataset,function(d){
+                                    return d;
+                                })*100;
+                        //保留一位小数点 末尾加一个百分号返回
+
+                            //return percent.toFixed(1)+"%";
+
+                        return name+" "+percent.toFixed(1)+"%"
+                    })
+        }
+    }
+</script>
+</body>
+</html>
